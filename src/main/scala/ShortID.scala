@@ -22,8 +22,8 @@ case class ShortID(alphabet: String, limit: Long, version: Int, reduceTime: Long
   def generate(): String = {
     val seconds = (new Date().getTime() - reduceTime) / 1000;
     val count   = state.transformAndGet {
-      case s@State(p, count) if p == seconds => s.copy(counter = count + 1)
-      case _ => State(seconds, 1)
+      case State(p, _) if seconds > p => State(seconds, 1)
+      case s => s.copy(counter = s.counter + 1)
     }.counter
 
     encode(seconds, count-1)
