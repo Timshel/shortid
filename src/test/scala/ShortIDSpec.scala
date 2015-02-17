@@ -8,6 +8,7 @@ import scala.collection.mutable.Map
 
 class ShortIDSpec extends FlatSpec with Matchers {
   val alph  = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-"
+  val overf = '+'
   val limit = math.pow(2, 30).toLong
 
   it should "calculate a correct padLength" in {
@@ -29,6 +30,14 @@ class ShortIDSpec extends FlatSpec with Matchers {
     }
   }
 
+  it should "overflow" in {
+    val generator = ShortID(alph, overf, limit, 1, DateTime.now().getMillis)
+    val overflow  = DateTime.now().plusYears(100).getMillis
+
+    assert( !generator.encode(10000l, 0).contains(overf) )
+    assert( generator.encode(overflow, 0).contains(overf) )
+  }
+
   it should "encode with no collision" in {
     val reduce = DateTime.now().minusYears(10).getMillis
     val check = Map.empty[String, (Int, Int, Int, Int)]
@@ -40,7 +49,7 @@ class ShortIDSpec extends FlatSpec with Matchers {
         math.abs(Random.nextInt),
         math.abs(Random.nextInt)
       )
-      val id   = ShortID(alph, limit, seed._1, reduce, seed._2).encode(seed._3, seed._4)
+      val id   = ShortID(alph, overf, limit, seed._1, reduce, seed._2).encode(seed._3, seed._4)
 
       assert( check.get(id).fold(true)(_ == seed) )
       check.put(id, seed)
@@ -48,7 +57,7 @@ class ShortIDSpec extends FlatSpec with Matchers {
   }
 
   it should "generate no duplicate" in {
-    val generator = ShortID(alph, limit, 12, DateTime.now().minusYears(10).getMillis, 1)
+    val generator = ShortID(alph, overf, limit, 12, DateTime.now().minusYears(10).getMillis, 1)
     val builder   = Set.newBuilder[String]
 
     for( _ <- 1 to 1000000 ){

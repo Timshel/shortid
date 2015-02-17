@@ -7,16 +7,26 @@ import scala.concurrent.stm.Ref
 
 /**
  * alphabet: The characters used for the encoding
- * limit: The ceiling value after which the seconds will overflow (2^30 give us ~30years since reduceTime and an encoding length of 5chars with base64).
+ * overflow: This char will be added between the seconds and counter if we overflow.
+ *           To prevent any duplicate this char should not be included in the alphabet.
+ * limit: The ceiling value after which the seconds will overflow
+ *        (2^30 give us ~30years since reduceTime and an encoding length of 5chars with base64).
  * version: Don't change unless you change the algo or reduceTime (Int < alphabet.length).
  * reduceTime: Ignore all milliseconds before a certain time to reduce the size of the date without sacrificing uniqueness.
  *             To regenerate `DateTime.now()` and bump the version. Always bump the version!
  * nodeId: If you are using multiple servers use this to make each instance has a unique value (Int < alphabet.length).
  */
-case class ShortID(alphabet: String, limit: Long, version: Int, reduceTime: Long, nodeId: Int){
+case class ShortID(
+  alphabet:   String,
+  overflow:   Char,
+  limit:      Long,
+  version:    Int,
+  reduceTime: Long,
+  nodeId:     Option[Int]
+){
   import ShortID._
 
-  val state     = Ref.apply( State(reduceTime, 0) ).single
+  val state     = Ref.apply( State(0, 0) ).single
   val padLength = ShortID.padLength(limit, alphabet)
 
   def generate(): String = {
@@ -29,12 +39,17 @@ case class ShortID(alphabet: String, limit: Long, version: Int, reduceTime: Long
     encode(seconds, count-1)
   }
 
+  /**
+   * If the encoded seconds is longer than the padLength add the overflow char.
+   */
   def encode(seconds: Long, count: Long): String = {
     val builder = StringBuilder.newBuilder
+    val overflowed = padLength + ( if( nodeId.isDefined ) 2 else 1 )
 
     builder + alphabet.charAt(version)
-    builder + alphabet.charAt(nodeId)
+    nodeId.foreach { i => builder + alphabet.charAt(i) }
     builder ++= ShortID.encode(alphabet, seconds).reverse.padTo(padLength, alphabet.head).reverse
+    if( builder.length > overflowed ) builder += overflow
     if( count > 0 ) builder ++= ShortID.encode(alphabet, count)
 
     return builder.result
@@ -45,6 +60,12 @@ case class ShortID(alphabet: String, limit: Long, version: Int, reduceTime: Long
 object ShortID {
 
   case class State(seconds: Long, counter: Long)
+
+  def apply(alphabet: String, overflow: Char, limit: Long, version: Int, reduceTime: Long): ShortID =
+    ShortID(alphabet, overflow, limit, version, reduceTime, None)
+
+  def apply(alphabet: String, overflow: Char, limit: Long, version: Int, reduceTime: Long, nodeId: Int): ShortID =
+    ShortID(alphabet, overflow, limit, version, reduceTime, Some(nodeId))
 
   def encode(alphabet: String, value: Long): String = {
     def inner(alph: String, value: Long, tail: String = ""): String =
