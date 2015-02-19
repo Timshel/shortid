@@ -14,11 +14,11 @@ class ShortIDPlugin(app: Application) extends Plugin {
     ( for {
         alphabet    <- conf.getString("application.shortId.alphabet")
         overflow    <- conf.getString("application.shortId.overflow")
+        padLength   <- conf.getInt("application.shortId.padLength")
         reduceTime  <- conf.getLong("application.shortId.reduceTime")
         version     <- conf.getInt("application.shortId.version").filter( _ < alphabet.length )
         nodeId      <- conf.getInt("application.shortId.nodeId").filter( _ < alphabet.length )
-        limit       =  math.pow(2, 30).toLong // ~ 30 years
-      } yield shortId = Some( ShortID(alphabet, overflow.head, limit, version, reduceTime, nodeId) )
+      } yield shortId = Some( ShortID(alphabet, overflow.head, padLength, version, reduceTime, nodeId) )
     ).getOrElse {
       Logger.error("Invalid ShortId configuration")
       sys.exit(1)

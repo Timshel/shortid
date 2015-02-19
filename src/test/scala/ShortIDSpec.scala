@@ -7,13 +7,8 @@ import scala.util.Random
 import scala.collection.mutable.Map
 
 class ShortIDSpec extends FlatSpec with Matchers {
-  val alph  = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-"
-  val overf = '+'
-  val limit = math.pow(2, 30).toLong
-
-  it should "calculate a correct padLength" in {
-    assert(ShortID.padLength(limit, alph) == 5)
-  }
+  val alph  = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+  val overf = '_'
 
   it should "encode" in {
     val octal = "01234567"
@@ -31,7 +26,7 @@ class ShortIDSpec extends FlatSpec with Matchers {
   }
 
   it should "overflow" in {
-    val generator = ShortID(alph, overf, limit, 1, DateTime.now().getMillis)
+    val generator = ShortID(alph, overf, padLength = 5, 1, DateTime.now().getMillis)
     val overflow  = DateTime.now().plusYears(100).getMillis
 
     assert( !generator.encode(10000l, 0).contains(overf) )
@@ -44,12 +39,12 @@ class ShortIDSpec extends FlatSpec with Matchers {
 
     for( _ <- 1 to 1000000 ){
       val seed = (
-        math.abs(Random.nextInt) % 64,
-        math.abs(Random.nextInt) % 64,
+        math.abs(Random.nextInt) % alph.length,
+        math.abs(Random.nextInt) % alph.length,
         math.abs(Random.nextInt),
         math.abs(Random.nextInt)
       )
-      val id   = ShortID(alph, overf, limit, seed._1, reduce, seed._2).encode(seed._3, seed._4)
+      val id   = ShortID(alph, overf, padLength = 5, seed._1, reduce, seed._2).encode(seed._3, seed._4)
 
       assert( check.get(id).fold(true)(_ == seed) )
       check.put(id, seed)
@@ -57,7 +52,7 @@ class ShortIDSpec extends FlatSpec with Matchers {
   }
 
   it should "generate no duplicate" in {
-    val generator = ShortID(alph, overf, limit, 12, DateTime.now().minusYears(10).getMillis, 1)
+    val generator = ShortID(alph, overf, padLength = 5, 12, DateTime.now().minusYears(10).getMillis, 1)
     val builder   = Set.newBuilder[String]
 
     for( _ <- 1 to 1000000 ){
